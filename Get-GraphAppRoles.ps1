@@ -23,14 +23,7 @@ Function Get-GraphAppRoles {
         [string]
         [ValidateNotNullOrEmpty()]$Search
     )
-    if ($Null -eq (Get-MgContext)) {
-        Connect-MgGraph -Scopes "Directory.Read.All"
-    }
-    else {
-        if ((Get-Mgcontext).Scopes -notcontains "Directory.Read.All") {
-            Connect-MgGraph -Scopes "Directory.Read.All"
-        }
-    }
+    Assert-RequiredScopes -RequiredScopes "Directory.Read.ALL"
     $GraphServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
     $R = Invoke-GraphRequest -Method GET -Uri "/beta/servicePrincipals/$($GraphServicePrincipal.Id)/approles"
     if ($R -contains "@odata.nextLink") {

@@ -28,15 +28,8 @@ function Remove-ManagedIdentityGraphAppRoles {
         [string[]]
         $AppRole
     )
-    Import-Module Microsoft.Graph.Authentication
-    if ($Null -eq (Get-mgcontext)) {
-        Connect-MgGraph -Scopes "Directory.ReadWrite.All", "ServicePrincipalEndpoint.ReadWrite.All", "AppRoleAssignment.ReadWrite.All"
-    }
-    else {
-        if ((Get-Mgcontext).Scopes -notcontains "Directory.ReadWrite.All", "ServicePrincipalEndpoint.ReadWrite.All", "AppRoleAssignment.ReadWrite.All") {
-            Connect-MgGraph -Scopes "Directory.ReadWrite.All", "ServicePrincipalEndpoint.ReadWrite.All", "AppRoleAssignment.ReadWrite.All"
-        }
-    } 
+
+    Assert-RequiredScopes -RequiredScopes "Directory.Read.ALL", "ServicePrincipalEndpoint.ReadWrite.All", "AppRoleAssignment.ReadWrite.All"
     try {
         $ManagedIdentityServicePrincipal = Get-MgServicePrincipal -ServicePrincipalId $ManagedIdentityID
     }
