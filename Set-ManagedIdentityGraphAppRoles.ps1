@@ -16,6 +16,7 @@ function Set-ManagedIdentityGraphAppRoles {
 .OUTPUTS
     None.
 .NOTES
+  Replaces any existing scopes
   Author: Alec Weber
   Date: 03/13/2023
 #>
@@ -28,15 +29,8 @@ function Set-ManagedIdentityGraphAppRoles {
         [string[]]
         $AppRole
     )
-    Import-Module Microsoft.Graph.Authentication
-    if ($Null -eq (Get-mgcontext)) {
-        Connect-MgGraph -Scopes "Directory.ReadWrite.All","ServicePrincipalEndpoint.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
-    }
-    else {
-        if ((Get-Mgcontext).Scopes -notcontains "Directory.ReadWrite.All","ServicePrincipalEndpoint.ReadWrite.All","AppRoleAssignment.ReadWrite.All") {
-            Connect-MgGraph -Scopes "Directory.ReadWrite.All","ServicePrincipalEndpoint.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
-        }
-    } 
+
+    Assert-RequiredScopes -RequiredScopes "Directory.Read.ALL", "ServicePrincipalEndpoint.ReadWrite.All", "AppRoleAssignment.ReadWrite.All"
     try {
         $ManagedIdentityServicePrincipal = Get-MgServicePrincipal -ServicePrincipalId $ManagedIdentityId
     }
@@ -44,13 +38,21 @@ function Set-ManagedIdentityGraphAppRoles {
         throw New-Object -typename System.Management.Automation.ItemNotFoundException -ArgumentList "The Managed Idenity could not be found: $($_.Message)"
     }
     $GraphServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'"
-    $allRoles = Get-GraphAppRoles
-    Foreach ($Role in $AppRole) {
-        $desiredRole = $allRoles | Where-Object { $_.Scope -eq $Role }
-        if (($Null -eq $desiredRole ) -or ($desiredRole -is [Array])) {
-
-            throw New-Object -typename System.Management.Automation.ItemNotFoundException -ArgumentList "The desired AppRole was not found"
+    $AllRoles = Get-GraphAppRoles
+    $Assignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityServicePrincipal.Id
+    $DesiredRoles = $AllRoles | Where-Object { $_.Scope -in $AppRole}
+        if (([Array]($DesiredRoles)).Count -ne $AppRole.Count ) {
+            throw New-Object -typename System.Management.Automation.ItemNotFoundException -ArgumentList "One or more of the desired scopes were not found: $($AppRole|Where-Object {$_ -notin $AllRoles.Scope})"
         }
-        New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityServicePrincipal.Id -ResourceId $GraphServicePrincipal.Id -AppRoleId $desiredRole.Id
+    $Assignments|Where-Object {$_.AppRoleId -notin $DesiredRoles.Id} |ForEach-Object {
+        Remove-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityServicePrincipal.Id -AppRoleAssignmentId $_.Id
+    }
+        $RolesToAssign = $DesiredRoles |Where-Object {$_.Id -notin $Assignments.AppRoleId}
+        Foreach ($RoleToAssignId in $RolesToAssign.Id) {
+        New-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $GraphServicePrincipal.Id  -BodyParameter @{
+            "principalId" = "$($ManagedIdentityServicePrincipal.Id)" 
+            "resourceId" = "$($GraphServicePrincipal.Id)"
+            "appRoleId" = "$($RoleToAssignId)"
+        }
     }
 }
