@@ -1,7 +1,7 @@
 function Get-ManagedIdentityGraphAppRoles {
     <#
 .SYNOPSIS
-   Gets Microsoft Graph assigned scope permissions for a managed identity in Azure AD.
+   Sets Microsoft Graph scope permissions for a managed identity in Azure AD.
 .DESCRIPTION
   The Set-ManagedIdentityGraphAppRoles function sets Microsoft Graph scope permissions for a managed identity in Azure AD. 
 
